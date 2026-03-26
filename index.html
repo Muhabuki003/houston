@@ -23,7 +23,6 @@
       height: 700vh;
     }
 
-    /* Fixed 3-D stage */
     #stage {
       position: fixed;
       inset: 0;
@@ -32,7 +31,6 @@
 
     canvas { display: block; width: 100% !important; height: 100% !important; }
 
-    /* Sky gradient that shifts as you scroll */
     #sky-bg {
       position: fixed;
       inset: 0;
@@ -41,7 +39,6 @@
       transition: none;
     }
 
-    /* Vignette */
     #stage::after {
       content: '';
       position: absolute;
@@ -50,7 +47,6 @@
       pointer-events: none;
     }
 
-    /* Progress bar */
     #bar {
       position: fixed;
       bottom: 0; left: 0;
@@ -61,7 +57,6 @@
       box-shadow: 0 0 12px var(--orange);
     }
 
-    /* Chapter labels */
     .label {
       position: fixed;
       z-index: 10;
@@ -134,7 +129,6 @@
       margin-top: .5rem;
     }
 
-    /* Scroll hint */
     #hint {
       position: fixed;
       bottom: 2.8rem;
@@ -162,7 +156,6 @@
       50%      { transform: translateY(5px); }
     }
 
-    /* HUD coords */
     #hud {
       position: fixed;
       top: 1.2rem;
@@ -175,7 +168,6 @@
       line-height: 1.8;
     }
 
-    /* Loading screen */
     #loading {
       position: fixed;
       inset: 0;
@@ -214,7 +206,6 @@
   <div id="stage"><canvas id="c"></canvas></div>
   <div id="bar"></div>
 
-  <!-- Chapter labels -->
   <div class="label" id="ch1">
     <h1>LOW<span>POLY</span><br>CITY</h1>
     <p>Scroll to fly through</p>
@@ -247,7 +238,6 @@
     <div id="load-bar-wrap"><div id="load-bar"></div></div>
   </div>
 
-  <!-- Three.js r128 (module) -->
   <script type="importmap">
   {
     "imports": {
@@ -256,15 +246,12 @@
   }
   </script>
 
-  <!-- GSAP -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 
   <script type="module">
     import * as THREE from 'three';
 
-    // GLTFLoader inline (r128 compatible)
-    // We inline a minimal loader fetch because CDN path varies
     const { GLTFLoader } = await import(
       'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/loaders/GLTFLoader.js'
     );
@@ -274,7 +261,6 @@
 
     gsap.registerPlugin(ScrollTrigger);
 
-    // ── Renderer ────────────────────────────
     const canvas   = document.getElementById('c');
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -284,16 +270,13 @@
     renderer.toneMappingExposure = 1.1;
     renderer.outputEncoding    = THREE.sRGBEncoding;
 
-    // ── Scene ───────────────────────────────
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0a0e14);
     scene.fog = new THREE.Fog(0x0a0e14, 60, 180);
 
-    // ── Camera ──────────────────────────────
     const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 500);
     camera.position.set(0, 30, 80);
 
-    // ── Resize ──────────────────────────────
     function resize() {
       const w = canvas.parentElement.clientWidth;
       const h = canvas.parentElement.clientHeight;
@@ -304,7 +287,6 @@
     resize();
     window.addEventListener('resize', resize);
 
-    // ── Lights ──────────────────────────────
     scene.add(new THREE.AmbientLight(0x8899bb, 1.8));
 
     const sun = new THREE.DirectionalLight(0xfff4dd, 3.5);
@@ -321,7 +303,6 @@
     fillLight.position.set(-20, 10, -20);
     scene.add(fillLight);
 
-    // ── Stars ───────────────────────────────
     const starGeo = new THREE.BufferGeometry();
     const starPos = new Float32Array(1200 * 3);
     for (let i = 0; i < 1200; i++) {
@@ -337,7 +318,6 @@
       color: 0xaaccff, size: .3, sizeAttenuation: true
     })));
 
-    // ── Load GLB ────────────────────────────
     const loadBar   = document.getElementById('load-bar');
     const loadScreen = document.getElementById('loading');
 
@@ -348,38 +328,37 @@
     loader.setDRACOLoader(draco);
 
     let modelCenter = new THREE.Vector3(0, 0, 0);
-    let modelSize   = 50; // fallback, updated after load
+    let modelSize   = 50;
 
+    // ============================================
+    // CLOUDFLARE FIX: Use local path or GitHub Pages
+    // ============================================
     loader.load(
-      'https://raw.githubusercontent.com/Muhabuki003/houston/main/lowpoly_city_free.glb',
+      'lowpoly_city_free.glb',  // ← PUT THIS FILE IN SAME FOLDER AS INDEX.HTML
+      // OR use GitHub Pages: 'https://muhabuki003.github.io/houston/lowpoly_city_free.glb',
       (gltf) => {
         const model = gltf.scene;
 
-        // Auto-scale & centre the model
         const box = new THREE.Box3().setFromObject(model);
         const size   = new THREE.Vector3();
         const center = new THREE.Vector3();
         box.getSize(size);
         box.getCenter(center);
 
-        // Normalise to ~100 units wide for consistent camera paths
         const maxDim = Math.max(size.x, size.z);
         const scale  = 100 / maxDim;
         model.scale.setScalar(scale);
 
-        // Re-compute after scale
         box.setFromObject(model);
         box.getCenter(center);
         box.getSize(size);
 
-        // Centre horizontally, keep on ground
         model.position.sub(center);
         model.position.y -= box.min.y * scale;
 
         modelCenter.copy(new THREE.Vector3(0, size.y * .35, 0));
         modelSize = Math.max(size.x, size.z);
 
-        // Enable shadows on every mesh
         model.traverse(child => {
           if (child.isMesh) {
             child.castShadow    = true;
@@ -392,14 +371,11 @@
 
         scene.add(model);
 
-        // Build camera path AFTER we know the model size
         buildCameraPath(modelSize, size.y);
 
-        // Hide loading screen
         loadScreen.style.opacity = '0';
         setTimeout(() => loadScreen.style.display = 'none', 900);
 
-        // Show intro label
         document.getElementById('ch1').style.opacity = '1';
       },
       (xhr) => {
@@ -409,33 +385,30 @@
       },
       (err) => {
         console.error('GLB load error', err);
-        loadScreen.querySelector('span').textContent = 'Error loading model';
+        loadScreen.querySelector('span').textContent = 'Error loading model - Check console';
       }
     );
 
-    // ── Camera path (built after model loads) ─
     let camPath, lookPath;
 
     function buildCameraPath(w, h) {
-      const r  = w * .65;   // orbit radius
-      const rI = w * .18;   // inner / street-level radius
-      const hi = h  * 1.1;  // high altitude
+      const r  = w * .65;
+      const rI = w * .18;
+      const hi = h  * 1.1;
 
-      // Cinematic waypoints: wide intro → dive to street → sweep around → roof → outro
       camPath = new THREE.CatmullRomCurve3([
-        new THREE.Vector3(0,      hi * .7,  r   ),  // 0%   intro wide
-        new THREE.Vector3(r*.6,   hi * .5,  r*.6),  // 10%  drift right
-        new THREE.Vector3(rI,     h * .15,  rI  ),  // 25%  descend to street
-        new THREE.Vector3(-rI*.5, h * .1,   rI*.2), // 38%  street sweep
-        new THREE.Vector3(-rI,    h * .2,   rI  ),  // 50%  low left
-        new THREE.Vector3(-r*.5,  hi * .4,  r*.3),  // 62%  rise left
-        new THREE.Vector3(-r*.4,  hi * .8,  -r*.3), // 74%  high rear
-        new THREE.Vector3(r*.3,   hi * .6,  -r*.4), // 85%  rear right
-        new THREE.Vector3(r*.1,   hi * .5,   r*.5), // 94%  return
-        new THREE.Vector3(0,      hi * .7,   r   ),  // 100% full loop
+        new THREE.Vector3(0,      hi * .7,  r   ),
+        new THREE.Vector3(r*.6,   hi * .5,  r*.6),
+        new THREE.Vector3(rI,     h * .15,  rI  ),
+        new THREE.Vector3(-rI*.5, h * .1,   rI*.2),
+        new THREE.Vector3(-rI,    h * .2,   rI  ),
+        new THREE.Vector3(-r*.5,  hi * .4,  r*.3),
+        new THREE.Vector3(-r*.4,  hi * .8,  -r*.3),
+        new THREE.Vector3(r*.3,   hi * .6,  -r*.4),
+        new THREE.Vector3(r*.1,   hi * .5,   r*.5),
+        new THREE.Vector3(0,      hi * .7,   r   ),
       ]);
 
-      // Look-at targets (keep gaze on the city centre, slightly varying height)
       lookPath = new THREE.CatmullRomCurve3([
         new THREE.Vector3(0,    h*.3,  0),
         new THREE.Vector3(0,    h*.2,  0),
@@ -452,7 +425,6 @@
       setupScroll();
     }
 
-    // ── ScrollTrigger ────────────────────────
     function setupScroll() {
       const bar   = document.getElementById('bar');
       const hPos  = document.getElementById('hud-pos');
@@ -464,7 +436,6 @@
       const ch3 = document.getElementById('ch3');
       const ch4 = document.getElementById('ch4');
 
-      // Sky colour keyframes  [progress, hexColor]
       const skyKeys = [
         [0,    0x0a0e14],
         [0.2,  0x0d1520],
@@ -500,29 +471,23 @@
 
           if (!camPath) return;
 
-          // Clamp to avoid edge issues
           const t = Math.min(Math.max(p, 0.001), 0.999);
 
-          // Move camera along spline
           const camPos  = camPath.getPointAt(t);
           const lookPos = lookPath.getPointAt(t);
           camera.position.copy(camPos);
           camera.lookAt(lookPos);
 
-          // Sky tint
           const skyCol = getSkyColor(p);
           scene.background.copy(skyCol);
           scene.fog.color.copy(skyCol);
 
-          // HUD
           bar.style.width = (p * 100) + '%';
           hPos.textContent  = `POS ${camPos.x.toFixed(1)} / ${camPos.y.toFixed(1)} / ${camPos.z.toFixed(1)}`;
           hProg.textContent = `PROGRESS ${Math.round(p * 100)}%`;
 
-          // Scroll hint
           hint.style.opacity = p < .04 ? '1' : '0';
 
-          // Chapter labels using smooth fade windows
           const fade = (lo, peak, hi) =>
             p < lo ? 0 : p < peak ? (p-lo)/(peak-lo) : p < hi ? (hi-p)/(hi-peak) : 0;
 
@@ -534,12 +499,10 @@
       });
     }
 
-    // ── Render loop ──────────────────────────
     let t = 0;
     function animate() {
       requestAnimationFrame(animate);
       t += .006;
-      // Subtle sun drift
       sun.position.x = 30 + Math.sin(t * .1) * 5;
       fillLight.intensity = .7 + Math.sin(t * .4) * .15;
       ScrollTrigger.update();
